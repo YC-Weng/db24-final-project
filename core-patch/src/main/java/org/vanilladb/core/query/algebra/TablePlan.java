@@ -36,9 +36,9 @@ public class TablePlan implements Plan {
 	 * table.
 	 * 
 	 * @param tblName
-	 *            the name of the table
+	 *                the name of the table
 	 * @param tx
-	 *            the calling transaction
+	 *                the calling transaction
 	 */
 	public TablePlan(String tblName, Transaction tx) {
 		this.tx = tx;
@@ -46,6 +46,12 @@ public class TablePlan implements Plan {
 		if (ti == null)
 			throw new TableNotFoundException("table '" + tblName
 					+ "' is not defined in catalog.");
+		si = VanillaDb.statMgr().getTableStatInfo(ti, tx);
+	}
+
+	public TablePlan(TableInfo ti, Transaction tx) {
+		this.tx = tx;
+		this.ti = ti;
 		si = VanillaDb.statMgr().getTableStatInfo(ti, tx);
 	}
 

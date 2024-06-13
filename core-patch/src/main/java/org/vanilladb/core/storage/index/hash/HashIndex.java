@@ -42,7 +42,7 @@ import org.vanilladb.core.util.CoreProperties;
  * allocated, and each bucket is implemented as a file of index records.
  */
 public class HashIndex extends Index {
-	
+
 	/**
 	 * A field name of the schema of index records.
 	 */
@@ -60,7 +60,7 @@ public class HashIndex extends Index {
 		int rpb = Buffer.BUFFER_SIZE / RecordPage.slotSize(schema(keyType));
 		return (totRecs / rpb) / NUM_BUCKETS;
 	}
-	
+
 	private static String keyFieldName(int index) {
 		return SCHEMA_KEY + index;
 	}
@@ -69,7 +69,7 @@ public class HashIndex extends Index {
 	 * Returns the schema of the index records.
 	 * 
 	 * @param fldType
-	 *            the type of the indexed field
+	 *                the type of the indexed field
 	 * 
 	 * @return the schema of the index records
 	 */
@@ -81,7 +81,7 @@ public class HashIndex extends Index {
 		sch.addField(SCHEMA_RID_ID, INTEGER);
 		return sch;
 	}
-	
+
 	private SearchKey searchKey;
 	private RecordFile rf;
 	private boolean isBeforeFirsted;
@@ -90,11 +90,11 @@ public class HashIndex extends Index {
 	 * Opens a hash index for the specified index.
 	 * 
 	 * @param ii
-	 *            the information of this index
+	 *                the information of this index
 	 * @param keyType
-	 *            the type of the search key
+	 *                the type of the search key
 	 * @param tx
-	 *            the calling transaction
+	 *                the calling transaction
 	 */
 	public HashIndex(IndexInfo ii, SearchKeyType keyType, Transaction tx) {
 		super(ii, keyType, tx);
@@ -140,7 +140,7 @@ public class HashIndex extends Index {
 		if (rf.fileSize() == 0)
 			RecordFile.formatFileHeader(ti.fileName(), tx);
 		rf.beforeFirst();
-		
+
 		isBeforeFirsted = true;
 	}
 
@@ -154,7 +154,7 @@ public class HashIndex extends Index {
 		if (!isBeforeFirsted)
 			throw new IllegalStateException("You must call beforeFirst() before iterating index '"
 					+ ii.indexName() + "'");
-		
+
 		while (rf.next())
 			if (getKey().equals(searchKey))
 				return true;
@@ -182,11 +182,11 @@ public class HashIndex extends Index {
 	public void insert(SearchKey key, RecordId dataRecordId, boolean doLogicalLogging) {
 		// search the position
 		beforeFirst(new SearchRange(key));
-		
+
 		// log the logical operation starts
 		if (doLogicalLogging)
 			tx.recoveryMgr().logLogicalStart();
-		
+
 		// insert the data
 		rf.insert();
 		for (int i = 0; i < keyType.length(); i++)
@@ -194,7 +194,7 @@ public class HashIndex extends Index {
 		rf.setVal(SCHEMA_RID_BLOCK, new BigIntConstant(dataRecordId.block()
 				.number()));
 		rf.setVal(SCHEMA_RID_ID, new IntegerConstant(dataRecordId.id()));
-		
+
 		// log the logical operation ends
 		if (doLogicalLogging)
 			tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
@@ -210,18 +210,18 @@ public class HashIndex extends Index {
 	public void delete(SearchKey key, RecordId dataRecordId, boolean doLogicalLogging) {
 		// search the position
 		beforeFirst(new SearchRange(key));
-		
+
 		// log the logical operation starts
 		if (doLogicalLogging)
 			tx.recoveryMgr().logLogicalStart();
-		
+
 		// delete the specified entry
 		while (next())
 			if (getDataRecordId().equals(dataRecordId)) {
 				rf.delete();
 				return;
 			}
-		
+
 		// log the logical operation ends
 		if (doLogicalLogging)
 			tx.recoveryMgr().logIndexDeletionEnd(ii.indexName(), key,
@@ -239,11 +239,21 @@ public class HashIndex extends Index {
 			rf.close();
 	}
 
+	@Override
+	public void Initialization() {
+
+	}
+
+	@Override
+	public void TrainIndex() {
+
+	}
+
 	private long fileSize(String fileName) {
 		tx.concurrencyMgr().readFile(fileName);
 		return VanillaDb.fileMgr().size(fileName);
 	}
-	
+
 	private SearchKey getKey() {
 		Constant[] vals = new Constant[keyType.length()];
 		for (int i = 0; i < vals.length; i++)

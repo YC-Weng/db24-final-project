@@ -17,9 +17,11 @@ package org.vanilladb.bench.server.procedure;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 import static org.vanilladb.core.sql.RecordComparator.DIR_DESC;
 
@@ -34,20 +36,22 @@ import org.vanilladb.core.sql.RecordComparator;
 import org.vanilladb.core.sql.VectorConstant;
 import org.vanilladb.core.sql.distfn.DistanceFn;
 import org.vanilladb.core.sql.distfn.EuclideanFn;
+import org.vanilladb.core.storage.index.Index;
+import org.vanilladb.core.storage.metadata.index.IndexInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 
 public class StoredProcedureUtils {
-	
+
 	public static Scan executeQuery(String sql, Transaction tx) {
 		Plan p = VanillaDb.newPlanner().createQueryPlan(sql, tx);
 		return p.open();
 	}
-	
+
 	public static int executeUpdate(String sql, Transaction tx) {
 		return VanillaDb.newPlanner().executeUpdate(sql, tx);
 	}
 
-	static class MapRecord implements Record{
+	static class MapRecord implements Record {
 
 		Map<String, Constant> fldVals = new HashMap<>();
 
@@ -66,45 +70,46 @@ public class StoredProcedureUtils {
 	}
 
 	static class PriorityQueueScan implements Scan {
-        private PriorityQueue<MapRecord> pq;
-        private boolean isBeforeFirsted = false;
+		private PriorityQueue<MapRecord> pq;
+		private boolean isBeforeFirsted = false;
 
-        public PriorityQueueScan(PriorityQueue<MapRecord> pq) {
-            this.pq = pq;
-        }
+		public PriorityQueueScan(PriorityQueue<MapRecord> pq) {
+			this.pq = pq;
+		}
 
-        @Override
-        public Constant getVal(String fldName) {
-            return pq.peek().getVal(fldName);
-        }
+		@Override
+		public Constant getVal(String fldName) {
+			return pq.peek().getVal(fldName);
+		}
 
-        @Override
-        public void beforeFirst() {
-            this.isBeforeFirsted = true;
-        }
+		@Override
+		public void beforeFirst() {
+			this.isBeforeFirsted = true;
+		}
 
-        @Override
-        public boolean next() {
-            if (isBeforeFirsted) {
-                isBeforeFirsted = false;
-                return true;
-            }
-            pq.poll();
-            return pq.size() > 0;
-        }
+		@Override
+		public boolean next() {
+			if (isBeforeFirsted) {
+				isBeforeFirsted = false;
+				return true;
+			}
+			pq.poll();
+			return pq.size() > 0;
+		}
 
-        @Override
-        public void close() {
-            return;
-        }
+		@Override
+		public void close() {
+			return;
+		}
 
-        @Override
-        public boolean hasField(String fldName) {
-            return pq.peek().containsKey(fldName);
-        }
-    }
+		@Override
+		public boolean hasField(String fldName) {
+			return pq.peek().containsKey(fldName);
+		}
+	}
 
-	public static Scan executeCalculateRecall(VectorConstant query, String tableName, String field, int limit, Transaction tx) {
+	public static Scan executeCalculateRecall(VectorConstant query, String tableName, String field, int limit,
+			Transaction tx) {
 		Plan p = new TablePlan(tableName, tx);
 
 		DistanceFn distFn = new EuclideanFn(field);
@@ -112,14 +117,14 @@ public class StoredProcedureUtils {
 
 		List<String> sortFlds = new ArrayList<String>();
 		sortFlds.add(distFn.fieldName());
-		
+
 		List<Integer> sortDirs = new ArrayList<Integer>();
 		sortDirs.add(DIR_DESC); // for priority queue
 
 		RecordComparator comp = new RecordComparator(sortFlds, sortDirs, distFn);
 
 		PriorityQueue<MapRecord> pq = new PriorityQueue<>(limit, (MapRecord r1, MapRecord r2) -> comp.compare(r1, r2));
-		
+
 		Scan s = p.open();
 		s.beforeFirst();
 		while (s.next()) {
@@ -140,5 +145,18 @@ public class StoredProcedureUtils {
 
 	public static int executeInsert(InsertData sql, Transaction tx) {
 		return VanillaDb.newPlanner().executeInsert(sql, tx);
+	}
+
+	public static void executeTrainIndex(String tblName, List<String> idxFields, String idxName, Transaction tx) {
+		Set<IndexInfo> indexes = new HashSet<IndexInfo>();
+		for (String fldname : idxFields) {
+			List<IndexInfo> iis = VanillaDb.catalogMgr().getIndexInfo(tblName, fldname, tx);
+			indexes.addAll(iis);
+		}
+
+		for (IndexInfo ii : indexes) {
+			Index idx = ii.open(tx);
+			idx.TrainIndex();
+		}
 	}
 }

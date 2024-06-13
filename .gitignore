@@ -21,3 +21,6 @@ target/
 ### Others ###
 design
 
+db/
+report/
+sift.txt

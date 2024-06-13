@@ -35,6 +35,7 @@ public class VectorConstant extends Constant implements Serializable {
 
     /**
      * Return a vector constant with random values
+     * 
      * @param length size of the vector
      */
     public VectorConstant(int length) {
@@ -46,10 +47,19 @@ public class VectorConstant extends Constant implements Serializable {
         }
     }
 
+    public VectorConstant(int length, int bound) {
+        type = new VectorType(length);
+        Random random = new Random();
+        vec = new float[length];
+        for (int i = 0; i < length; i++) {
+            vec[i] = random.nextInt(bound);
+        }
+    }
+
     public VectorConstant(float[] vector) {
         type = new VectorType(vector.length);
         vec = new float[vector.length];
-        
+
         for (int i = 0; i < vector.length; i++) {
             vec[i] = vector[i];
         }
@@ -57,10 +67,10 @@ public class VectorConstant extends Constant implements Serializable {
 
     public VectorConstant(List<Float> vector) {
         int length = vector.size();
-        
+
         type = new VectorType(length);
         vec = new float[length];
-        
+
         for (int i = 0; i < length; i++) {
             vec[i] = vector.get(i);
         }
@@ -88,6 +98,7 @@ public class VectorConstant extends Constant implements Serializable {
 
     /**
      * Reconstruct a vector constant from bytes
+     * 
      * @param bytes bytes to reconstruct
      */
     public VectorConstant(byte[] bytes) {
@@ -121,16 +132,16 @@ public class VectorConstant extends Constant implements Serializable {
 
     /**
      * Return a copy of the vector
+     * 
      * @return
      */
     public float[] copy() {
         return Arrays.copyOf(vec, vec.length);
     }
 
-
-    /** 
+    /**
      * Return the vector as bytes
-    */
+     */
     @Override
     public byte[] asBytes() {
         int bufferSize = this.size();
@@ -154,6 +165,7 @@ public class VectorConstant extends Constant implements Serializable {
 
     /**
      * Return the size of the vector
+     * 
      * @return size of the vector
      */
     public int dimension() {
@@ -167,7 +179,7 @@ public class VectorConstant extends Constant implements Serializable {
         switch (type.getSqlType()) {
             case VARCHAR:
                 return new VarcharConstant(toString(), type);
-            }
+        }
         throw new IllegalArgumentException("Cannot cast vector to " + type);
     }
 
@@ -225,7 +237,8 @@ public class VectorConstant extends Constant implements Serializable {
     @Override
     public int compareTo(Constant c) {
         // if (!(c instanceof VectorConstant))
-        //     throw new IllegalArgumentException("Vector does not support comparison with other types");
+        // throw new IllegalArgumentException("Vector does not support comparison with
+        // other types");
         // VectorConstant o = (VectorConstant) c;
         throw new IllegalArgumentException("VectorConstant does not support comparison");
     }

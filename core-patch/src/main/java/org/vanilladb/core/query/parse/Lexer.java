@@ -34,7 +34,7 @@ public class Lexer {
 	 * Creates a new lexical analyzer for the specified SQL statement.
 	 * 
 	 * @param s
-	 *            the SQL statement
+	 *          the SQL statement
 	 */
 	public Lexer(String s) {
 		initKeywords();
@@ -57,7 +57,7 @@ public class Lexer {
 	 * Returns true if the current token is the specified delimiter character.
 	 * 
 	 * @param delimiter
-	 *            a character denoting the delimiter
+	 *                  a character denoting the delimiter
 	 * @return true if the delimiter is the current token
 	 */
 	public boolean matchDelim(char delimiter) {
@@ -90,7 +90,7 @@ public class Lexer {
 	 * Returns true if the current token is the specified keyword.
 	 * 
 	 * @param keyword
-	 *            the keyword string
+	 *                the keyword string
 	 * @return true if that keyword is the current token
 	 */
 	public boolean matchKeyword(String keyword) {
@@ -117,7 +117,7 @@ public class Lexer {
 	 * Otherwise, moves to the next token.
 	 * 
 	 * @param delimiter
-	 *            a character denoting the delimiter
+	 *                  a character denoting the delimiter
 	 */
 	public void eatDelim(char delimiter) {
 		if (!matchDelim(delimiter))
@@ -170,7 +170,7 @@ public class Lexer {
 				eatDelim(',');
 		}
 		nextToken();
-		return vector; 
+		return vector;
 	}
 
 	/**
@@ -178,7 +178,7 @@ public class Lexer {
 	 * Otherwise, moves to the next token.
 	 * 
 	 * @param keyword
-	 *            the keyword string
+	 *                the keyword string
 	 */
 	public void eatKeyword(String keyword) {
 		if (!matchKeyword(keyword))
@@ -214,6 +214,6 @@ public class Lexer {
 				"int", "double", "vector", "varchar", "view", "as", "index", "on",
 				"long", "order", "by", "asc", "desc", "limit", "sum", "count", "avg",
 				"min", "max", "distinct", "group", "add", "sub", "mul", "div",
-				"explain", "using", "hash", "btree", "lsh", "cos", "euc");
+				"explain", "using", "hash", "btree", "lsh", "ivf", "cos", "euc");
 	}
 }

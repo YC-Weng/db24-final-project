@@ -34,7 +34,10 @@ import org.vanilladb.core.storage.tx.concurrency.ConcurrencyMgr;
  * A B-tree implementation of {@link Index}.
  */
 public class BTreeIndex extends Index {
-	protected static enum SearchPurpose { READ, INSERT, DELETE };
+	protected static enum SearchPurpose {
+		READ, INSERT, DELETE
+	};
+
 	private ConcurrencyMgr ccMgr;
 	private String leafFileName, dirFileName;
 	private BTreeLeaf leaf = null;
@@ -56,17 +59,17 @@ public class BTreeIndex extends Index {
 	 * they did not exist.
 	 * 
 	 * @param ii
-	 *            the information of this index
+	 *                the information of this index
 	 * @param keyType
-	 *            the type of the indexed field
+	 *                the type of the indexed field
 	 * @param tx
-	 *            the calling transaction
+	 *                the calling transaction
 	 */
 	public BTreeIndex(IndexInfo ii, SearchKeyType keyType, Transaction tx) {
 		super(ii, keyType, tx);
-		
+
 		this.ccMgr = tx.concurrencyMgr();
-		
+
 		// Initialize the first leaf block (if it needed)
 		leafFileName = BTreeLeaf.getFileName(ii.indexName());
 		if (isFileEmpty(leafFileName))
@@ -77,7 +80,7 @@ public class BTreeIndex extends Index {
 		rootBlk = new BlockId(dirFileName, 0);
 		if (isFileEmpty(dirFileName))
 			appendBlock(dirFileName, BTreeDir.schema(keyType), new long[] { 0 });
-		
+
 		// Insert an initial directory entry (if it needed)
 		BTreeDir rootDir = new BTreeDir(rootBlk, keyType, tx);
 		if (rootDir.getNumRecords() == 0)
@@ -134,7 +137,7 @@ public class BTreeIndex extends Index {
 		if (!isBeforeFirsted)
 			throw new IllegalStateException("You must call beforeFirst() before iterating index '"
 					+ ii.indexName() + "'");
-		
+
 		return leaf == null ? false : leaf.next();
 	}
 
@@ -170,7 +173,7 @@ public class BTreeIndex extends Index {
 		leaf.close();
 		if (newEntry == null)
 			return;
-		
+
 		// log the logical operation starts
 		if (doLogicalLogging)
 			tx.recoveryMgr().logLogicalStart();
@@ -190,7 +193,7 @@ public class BTreeIndex extends Index {
 			root.close();
 		}
 		dirsMayBeUpdated = null;
-		
+
 		// log the logical operation ends
 		if (doLogicalLogging)
 			tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
@@ -210,13 +213,13 @@ public class BTreeIndex extends Index {
 			throw new UnsupportedOperationException();
 
 		search(new SearchRange(key), SearchPurpose.DELETE);
-		
+
 		// log the logical operation starts
 		if (doLogicalLogging)
 			tx.recoveryMgr().logLogicalStart();
-		
+
 		leaf.delete(dataRecordId);
-		
+
 		// log the logical operation ends
 		if (doLogicalLogging)
 			tx.recoveryMgr().logIndexDeletionEnd(ii.indexName(), key,
@@ -235,6 +238,16 @@ public class BTreeIndex extends Index {
 			leaf = null;
 		}
 		dirsMayBeUpdated = null;
+	}
+
+	@Override
+	public void Initialization() {
+
+	}
+
+	@Override
+	public void TrainIndex() {
+
 	}
 
 	private void search(SearchRange searchRange, SearchPurpose purpose) {
@@ -258,14 +271,14 @@ public class BTreeIndex extends Index {
 		// Once the index file is not empty, the file won't be empty again
 		ccMgr.readFile(fileName);
 		return VanillaDb.fileMgr().isFileEmpty(fileName);
-		
+
 	}
-	
+
 	private long fileSize(String fileName) {
 		ccMgr.readFile(fileName);
 		return VanillaDb.fileMgr().size(fileName);
 	}
-	
+
 	private BlockId appendBlock(String fileName, Schema sch, long[] flags) {
 		ccMgr.modifyFile(fileName);
 		BTPageFormatter btpf = new BTPageFormatter(sch, flags);

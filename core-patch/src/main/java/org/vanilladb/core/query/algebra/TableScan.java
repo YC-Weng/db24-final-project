@@ -29,19 +29,25 @@ import org.vanilladb.core.storage.tx.Transaction;
  */
 public class TableScan implements UpdateScan {
 	private RecordFile rf;
+	private TableInfo ti;
 	private Schema schema;
 
 	/**
 	 * Creates a new table scan, and opens its corresponding record file.
 	 * 
 	 * @param ti
-	 *            the table's metadata
+	 *           the table's metadata
 	 * @param tx
-	 *            the calling transaction
+	 *           the calling transaction
 	 */
 	public TableScan(TableInfo ti, Transaction tx) {
+		this.ti = ti;
 		rf = ti.open(tx, true);
 		schema = ti.schema();
+	}
+
+	public String TblName() {
+		return ti.fileName();
 	}
 
 	// Scan methods
