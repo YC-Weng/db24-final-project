@@ -132,22 +132,13 @@ public class IVFIndex extends Index {
         TableInfo ti = new TableInfo(ii.indexName() + "_centroid", schema(keyType));
         rf = ti.open(tx, false);
         RecordFile.formatFileHeader(ti.fileName(), tx);
-        rf.beforeFirst();
-        rf.close();
+
         for (int i = 0; i < NUM_CENTROIDS; i++) {
-            rf = ti.open(tx, false);
-            rf.beforeFirst();
             rf.insert();
             rf.setVal(keyFieldName(0), GenerateRandomVector());
             rf.setVal("centroid_num", new IntegerConstant(i));
-            rf.close();
-
-            TableInfo dti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(i), data_schema(keyType));
-            rf = dti.open(tx, false);
-            RecordFile.formatFileHeader(dti.fileName(), tx);
-            rf.beforeFirst();
-            rf.close();
         }
+        rf.close();
         tx.bufferMgr().flushAll();
     }
 
@@ -157,9 +148,6 @@ public class IVFIndex extends Index {
         close();
 
         startTrainTime = System.currentTimeMillis();
-
-        // load all the centroid vector to centroidMap
-        load_all_the_centroids();
 
         // put data to _temp_idx_sift_data.tbl and init centDataNumMap
         prepare_for_training();
@@ -174,8 +162,9 @@ public class IVFIndex extends Index {
             reassign_all_the_data();
 
             logger.info("After iteration " + String.valueOf(i) + ": \n" + print_cent_data_num_info(oldCentDataNumMap)
-                    + "this iteration: " + String.valueOf((System.currentTimeMillis() - prevTime) / 1000) + " seconds\n"
-                    + "total elapsed time: " + String.valueOf((System.currentTimeMillis() - startTrainTime) / 1000)
+                    + "iteration " + String.valueOf(i) + ": "
+                    + String.valueOf((System.currentTimeMillis() - prevTime) / 1000.0) + " seconds\n"
+                    + "total elapsed time: " + String.valueOf((System.currentTimeMillis() - startTrainTime) / 1000.0)
                     + " seconds\n");
 
             // if the training converge then stop
@@ -192,7 +181,13 @@ public class IVFIndex extends Index {
     }
 
     private void prepare_for_training() {
+        close();
+
+        centroidMap = new HashMap<IntegerConstant, Constant>();
         centDataNumMap = new HashMap<IntegerConstant, IntegerConstant>();
+        for (int i = 0; i < NUM_CENTROIDS; i++)
+            centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(0));
+        Random rvg = new Random();
         num_items = 0;
         RecordFile temprf;
         TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
@@ -200,25 +195,32 @@ public class IVFIndex extends Index {
         RecordFile.formatFileHeader(tempti.fileName(), tx);
 
         for (int i = 0; i < NUM_CENTROIDS; i++) {
-            close();
             TableInfo ti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(i), data_schema(keyType));
             rf = ti.open(tx, false);
             rf.beforeFirst();
-            int count = 0;
             while (rf.next()) {
-                count++;
                 num_items++;
+                int rand_int = rvg.nextInt(NUM_CENTROIDS);
                 temprf.insert();
                 temprf.setVal(keyFieldName(0), rf.getVal(keyFieldName(0)));
                 temprf.setVal(SCHEMA_RID_BLOCK, rf.getVal(SCHEMA_RID_BLOCK));
                 temprf.setVal(SCHEMA_RID_ID, rf.getVal(SCHEMA_RID_ID));
-                temprf.setVal("centroid_num", new IntegerConstant(i));
+                temprf.setVal("centroid_num", new IntegerConstant(rand_int));
+
+                centDataNumMap.put(new IntegerConstant(rand_int),
+                        (IntegerConstant) centDataNumMap.get(new IntegerConstant(rand_int))
+                                .add(new IntegerConstant(1)));
+
             }
             rf.close();
-            if (count < minDataNum && count != 0)
-                minDataNum = count;
-            centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(count));
         }
+
+        minDataNum = 1000000;
+        for (int i = 0; i < NUM_CENTROIDS; i++)
+            if ((int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal() < minDataNum
+                    && (int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal() != 0)
+                minDataNum = (int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal();
+
         temprf.close();
         tx.bufferMgr().flushAll();
     }
@@ -266,17 +268,19 @@ public class IVFIndex extends Index {
 
     private void reassign_all_the_data() {
         centDataNumMap = new HashMap<IntegerConstant, IntegerConstant>();
+        for (int i = 0; i < NUM_CENTROIDS; i++)
+            centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(0));
+
         TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
         RecordFile temprf = tempti.open(tx, false);
         temprf.beforeFirst();
         while (temprf.next()) {
             int nearest_cent = calc_nearest_cent_num((VectorConstant) temprf.getVal(keyFieldName(0)));
             temprf.setVal("centroid_num", new IntegerConstant(nearest_cent));
-            if (centDataNumMap.keySet().contains(new IntegerConstant(nearest_cent)))
-                centDataNumMap.put(new IntegerConstant(nearest_cent), (IntegerConstant) centDataNumMap
-                        .get(new IntegerConstant(nearest_cent)).add(new IntegerConstant(1)));
-            else
-                centDataNumMap.put(new IntegerConstant(nearest_cent), new IntegerConstant(1));
+
+            centDataNumMap.put(new IntegerConstant(nearest_cent), (IntegerConstant) centDataNumMap
+                    .get(new IntegerConstant(nearest_cent)).add(new IntegerConstant(1)));
+
         }
         temprf.close();
 
@@ -328,7 +332,7 @@ public class IVFIndex extends Index {
 
         for (int i = 0; i < NUM_CENTROIDS; i++)
             centRfMap.get(new IntegerConstant(i)).close();
-
+        temprf.remove();
         tx.bufferMgr().flushAll();
     }
 
@@ -337,7 +341,7 @@ public class IVFIndex extends Index {
         for (int i = 0; i < NUM_CENTROIDS; i++) {
             s = s + "Centroid " + String.valueOf(i) + ": "
                     + String.valueOf(oldCentDataNumMap.get(new IntegerConstant(i)).asJavaVal()) + " -> "
-                    + centDataNumMap.get(new IntegerConstant(i)).asJavaVal() + "\n";
+                    + String.valueOf(centDataNumMap.get(new IntegerConstant(i)).asJavaVal()) + "\n";
         }
         return s;
     }
@@ -371,12 +375,11 @@ public class IVFIndex extends Index {
 
         this.searchKey = searchKey;
         load_all_the_centroids();
-        int ass_cent_num = calc_nearest_cent_num(searchKey);
-        String tblname = ii.indexName() + "_data_" + String.valueOf(ass_cent_num);
-        TableInfo ti = new TableInfo(tblname, data_schema(keyType));
+        TableInfo ti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(calc_nearest_cent_num(searchKey)),
+                data_schema(keyType));
 
-        // the underlying record file should not perform logging
-        this.rf = ti.open(tx, false);
+        close();
+        rf = ti.open(tx, false);
 
         // initialize the file header if needed
         if (rf.fileSize() == 0)
@@ -422,6 +425,7 @@ public class IVFIndex extends Index {
     }
 
     private void load_all_the_centroids() {
+        close();
         centroidMap = new HashMap<IntegerConstant, Constant>();
         TableInfo ti = new TableInfo(ii.indexName() + "_centroid", schema(keyType));
         rf = ti.open(tx, false);
@@ -470,12 +474,13 @@ public class IVFIndex extends Index {
         // search the position
         beforeFirst(key);
 
+        // insert the data
+        rf.insert();
+
         // log the logical operation starts
         if (doLogicalLogging)
             tx.recoveryMgr().logLogicalStart();
 
-        // insert the data
-        rf.insert();
         for (int i = 0; i < keyType.length(); i++)
             rf.setVal(keyFieldName(i), key.get(i));
         rf.setVal(SCHEMA_RID_BLOCK, new BigIntConstant(dataRecordId.block()
@@ -483,9 +488,9 @@ public class IVFIndex extends Index {
         rf.setVal(SCHEMA_RID_ID, new IntegerConstant(dataRecordId.id()));
 
         // log the logical operation ends
-        // if (doLogicalLogging)
-        // tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
-        // dataRecordId.block().number(), dataRecordId.id());
+        if (doLogicalLogging)
+            tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
+                    dataRecordId.block().number(), dataRecordId.id());
     }
 
     /**
@@ -495,24 +500,7 @@ public class IVFIndex extends Index {
      */
     @Override
     public void delete(SearchKey key, RecordId dataRecordId, boolean doLogicalLogging) {
-        // search the position
-        beforeFirst(new SearchRange(key));
 
-        // log the logical operation starts
-        if (doLogicalLogging)
-            tx.recoveryMgr().logLogicalStart();
-
-        // delete the specified entry
-        while (next())
-            if (getDataRecordId().equals(dataRecordId)) {
-                rf.delete();
-                return;
-            }
-
-        // log the logical operation ends
-        if (doLogicalLogging)
-            tx.recoveryMgr().logIndexDeletionEnd(ii.indexName(), key,
-                    dataRecordId.block().number(), dataRecordId.id());
     }
 
     /**

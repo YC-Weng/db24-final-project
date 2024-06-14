@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Logger;
 
 import org.vanilladb.bench.StatisticMgr;
 import org.vanilladb.bench.benchmarks.sift.SiftBenchConstants;
@@ -51,7 +52,7 @@ public class SiftRte extends RemoteTerminalEmulator<SiftTransactionType> {
     @Override
     protected TransactionExecutor<SiftTransactionType> getTxExeutor(SiftTransactionType type) {
         TxParamGenerator<SiftTransactionType> paramGen;
-        switch(type) {
+        switch (type) {
             case ANN:
                 paramGen = new SiftParamGen();
                 break;
@@ -67,16 +68,17 @@ public class SiftRte extends RemoteTerminalEmulator<SiftTransactionType> {
     }
 
     public void executeCalculateRecall(SutConnection conn) throws SQLException {
+        int count = 0;
         List<Double> recallList = new ArrayList<>();
         List<Map.Entry<VectorConstant, Integer>> insertMapList = new ArrayList<>(insertMap.entrySet());
         insertMapList.sort(Map.Entry.comparingByValue());
 
         // System.out.println("insertHistory: ");
         // for (Object[] array : insertHistory) {
-        //     for (Object obj : array) {
-        //         System.out.print(obj + " ");
-        //     }
-        //     System.out.println();
+        // for (Object obj : array) {
+        // System.out.print(obj + " ");
+        // }
+        // System.out.println();
         // }
         // System.out.println("==========");
 
@@ -100,7 +102,8 @@ public class SiftRte extends RemoteTerminalEmulator<SiftTransactionType> {
 
             // System.out.println("paramList: " + paramList);
 
-            VanillaDbSpResultSet recallResultSet = (VanillaDbSpResultSet) conn.callStoredProc(SiftTransactionType.CALCULATE_RECALL.getProcedureId(), paramList.toArray());
+            VanillaDbSpResultSet recallResultSet = (VanillaDbSpResultSet) conn
+                    .callStoredProc(SiftTransactionType.CALCULATE_RECALL.getProcedureId(), paramList.toArray());
             Schema sch = recallResultSet.getSchema();
             Record rec = recallResultSet.getRecords()[0];
 
@@ -118,6 +121,11 @@ public class SiftRte extends RemoteTerminalEmulator<SiftTransactionType> {
             double recallRate = (double) approximateNeighbors.size() / trueNeighbors.size();
 
             recallList.add(recallRate);
+
+            count++;
+            Logger logger = Logger.getLogger(SiftRte.class.getName());
+            logger.info(String.valueOf(count) + " / " + String.valueOf(resultMap.size()));
+
         }
 
         double sum = 0;
@@ -130,5 +138,5 @@ public class SiftRte extends RemoteTerminalEmulator<SiftTransactionType> {
 
         System.out.println("Average Recall Rate: " + averageRecallRate);
     }
-    
+
 }
