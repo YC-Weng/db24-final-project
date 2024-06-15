@@ -341,8 +341,6 @@ public class IVFIndex extends Index {
         load_all_the_centroids();
         TableInfo ti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(calc_nearest_cent_num(searchKey)),
                 data_schema(keyType));
-
-        close();
         rf = ti.open(tx, false);
 
         // initialize the file header if needed
@@ -356,7 +354,7 @@ public class IVFIndex extends Index {
     private int calc_nearest_cent_num(SearchKey searchKey) {
         int smallestCentroidNum = 0;
         float minDistance = Float.MAX_VALUE;
-        VectorConstant queryVector = (VectorConstant) searchKey.get(0); // 假设 searchKey.get(0) 返回 VectorConstant
+        VectorConstant queryVector = (VectorConstant) searchKey.get(0);
 
         for (int i = 0; i < NUM_CENTROIDS; i++) {
             VectorConstant centroid = (VectorConstant) centroidMap.get(new IntegerConstant(i));
@@ -455,6 +453,7 @@ public class IVFIndex extends Index {
         if (doLogicalLogging)
             tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
                     dataRecordId.block().number(), dataRecordId.id());
+        rf.close();
     }
 
     public void insert_random(SearchKey key, RecordId dataRecordId, boolean doLogicalLogging) {
@@ -480,6 +479,8 @@ public class IVFIndex extends Index {
         if (doLogicalLogging)
             tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
                     dataRecordId.block().number(), dataRecordId.id());
+
+        temprf.close();
     }
 
     /**
