@@ -480,7 +480,11 @@ public class Parser {
 		lex.eatDelim('(');
 		List<Constant> vals = constList();
 		lex.eatDelim(')');
-		return new InsertData(tblname, flds, vals);
+		if (lex.matchKeyword("random")) {
+			lex.eatKeyword("random");
+			return new InsertData(tblname, flds, vals, true);
+		} else
+			return new InsertData(tblname, flds, vals, false);
 	}
 
 	private DeleteData delete() {

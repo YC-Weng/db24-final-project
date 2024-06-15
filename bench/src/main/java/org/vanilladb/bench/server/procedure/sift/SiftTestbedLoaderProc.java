@@ -99,7 +99,7 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
             String vectorString;
 
             while (iid < SiftBenchConstants.NUM_ITEMS && (vectorString = br.readLine()) != null) {
-                String sql = "INSERT INTO sift(i_id, i_emb) VALUES (" + iid + ", [" + vectorString + "])";
+                String sql = "INSERT INTO sift(i_id, i_emb) VALUES (" + iid + ", [" + vectorString + "]) RANDOM";
                 // logger.info(sql);
                 iid++;
                 StoredProcedureUtils.executeUpdate(sql, tx);

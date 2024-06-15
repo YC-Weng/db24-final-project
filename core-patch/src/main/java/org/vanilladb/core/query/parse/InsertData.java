@@ -26,21 +26,29 @@ public class InsertData {
 	private String tblName;
 	private List<String> fields;
 	private List<Constant> vals;
+	private boolean random;
 
 	/**
 	 * Saves the table name and the field and value lists.
 	 * 
 	 * @param tblName
-	 *            the name of the affected table
+	 *                the name of the affected table
 	 * @param fields
-	 *            a list of field names
+	 *                a list of field names
 	 * @param vals
-	 *            a list of Constant values.
+	 *                a list of Constant values.
 	 */
 	public InsertData(String tblName, List<String> fields, List<Constant> vals) {
 		this.tblName = tblName;
 		this.fields = fields;
 		this.vals = vals;
+	}
+
+	public InsertData(String tblName, List<String> fields, List<Constant> vals, boolean random) {
+		this.tblName = tblName;
+		this.fields = fields;
+		this.vals = vals;
+		this.random = random;
 	}
 
 	/**
@@ -70,5 +78,9 @@ public class InsertData {
 	 */
 	public List<Constant> vals() {
 		return vals;
+	}
+
+	public boolean random() {
+		return random;
 	}
 }

@@ -40,7 +40,9 @@ import org.vanilladb.core.query.planner.UpdatePlanner;
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.storage.index.Index;
+import org.vanilladb.core.storage.index.IndexType;
 import org.vanilladb.core.storage.index.SearchKey;
+import org.vanilladb.core.storage.index.IVF.IVFIndex;
 import org.vanilladb.core.storage.metadata.index.IndexInfo;
 import org.vanilladb.core.storage.record.RecordId;
 import org.vanilladb.core.storage.tx.Transaction;
@@ -81,7 +83,10 @@ public class IndexUpdatePlanner implements UpdatePlanner {
 
 		for (IndexInfo ii : indexes) {
 			Index idx = ii.open(tx);
-			idx.insert(new SearchKey(ii.fieldNames(), fldValMap), rid, true);
+			if (data.random() && ii.indexType() == IndexType.IVF)
+				((IVFIndex) idx).insert_random(new SearchKey(ii.fieldNames(), fldValMap), rid, false);
+			else
+				idx.insert(new SearchKey(ii.fieldNames(), fldValMap), rid, true);
 			idx.close();
 		}
 
