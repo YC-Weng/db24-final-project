@@ -5,6 +5,7 @@ import org.vanilladb.core.sql.VectorConstant;
 import org.vanilladb.core.sql.distfn.DistanceFn;
 import org.vanilladb.core.storage.index.Index;
 import org.vanilladb.core.storage.index.IVF.IVFIndex;
+import org.vanilladb.core.storage.index.IVF.SIMDOperations;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.metadata.index.IndexInfo;
 import org.vanilladb.core.storage.metadata.statistics.Histogram;
@@ -17,6 +18,7 @@ public class IndexSortPlan implements Plan {
     private Transaction tx;
     private DistanceFn distFn;
     private IndexInfo ii;
+    private VectorConstant queryVector;
 
     public IndexSortPlan(Plan p, DistanceFn distFn, IndexInfo ii, Transaction tx) {
         this.p = p;
@@ -35,17 +37,26 @@ public class IndexSortPlan implements Plan {
         Index idx = ii.open(tx);
         TableInfo ti = ((IVFIndex) idx).getCentroidTableInfo();
         RecordFile rf = ti.open(tx, false);
-        double minDist = 999999;
+        double minDist = Double.MAX_VALUE;
         int minCentNum = -1;
         rf.beforeFirst();
-        while (rf.next())
-            if (this.distFn.distance((VectorConstant) rf.getVal("key0")) < minDist) {
-                minDist = this.distFn.distance((VectorConstant) rf.getVal("key0"));
+
+        // change to float array
+        float[] queryArray = queryVector.asJavaVal();
+
+        while (rf.next()) {
+            VectorConstant key0 = (VectorConstant) rf.getVal("key0");
+            float[] keyArray = key0.asJavaVal();
+            double dist = SIMDOperations.simdEuclideanDistance(queryArray, keyArray);
+            if (dist < minDist) {
+                minDist = dist;
                 minCentNum = (int) rf.getVal("centroid_num").asJavaVal();
             }
+        }
         rf.close();
         return new TablePlan(((IVFIndex) idx).getDataTableInfo(minCentNum), tx);
     }
+
 
     @Override
     public long blocksAccessed() {
