@@ -104,6 +104,8 @@ public class IVFIndex extends Index {
     private Map<IntegerConstant, IntegerConstant> centDataNumMap;
     private int minDataNum = 900000;
     private long startTrainTime;
+    private long TimeCost;
+    
     private int num_items;
 
     /**
@@ -144,9 +146,9 @@ public class IVFIndex extends Index {
 
     // using kmeans to train the index
     @Override
-    public void TrainIndex() {
+    public void TrainIndex(long inserttine) {
         close();
-
+        final long MAX_ALLOWED_TIME = 29 * 60 * 1000;
         startTrainTime = System.currentTimeMillis();
 
         // put data to _temp_idx_sift_data.tbl and init centDataNumMap
@@ -166,11 +168,17 @@ public class IVFIndex extends Index {
                     + String.valueOf((System.currentTimeMillis() - prevTime) / 1000.0) + " seconds\n"
                     + "total elapsed time: " + String.valueOf((System.currentTimeMillis() - startTrainTime) / 1000.0)
                     + " seconds\n");
-
+            // Calculate the total time including inserttine
+            long elapsedTime = System.currentTimeMillis() - startTrainTime;
+            long totalTimeIncludingInsert = elapsedTime - inserttine;
             // if the training converge then stop
             if ((any_change(oldCentDataNumMap) == false && i > 10)
-                    || (System.currentTimeMillis() - startTrainTime > MAX_TRAINING_TIME * 1000))
+                    || (totalTimeIncludingInsert > MAX_ALLOWED_TIME))
                 break;
+            
+            System.out.println("insertTine: " + String.valueOf(inserttine/1000.0)+ " seconds");
+            System.out.println("elapsedTime: "+  String.valueOf(elapsedTime/1000.0)+ " seconds");
+            System.out.println("totalTime: "+  String.valueOf(totalTimeIncludingInsert/1000.0)+ " seconds");
             prevTime = System.currentTimeMillis();
             i++;
         }

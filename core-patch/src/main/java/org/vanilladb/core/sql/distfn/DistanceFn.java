@@ -28,4 +28,7 @@ public abstract class DistanceFn {
     public String fieldName() {
         return fieldName;
     }
+    public VectorConstant getQueryVector() {
+        return query;
+    }
 }

@@ -22,8 +22,11 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
         super(new SiftTestbedLoaderParamHelper());
     }
 
+    private long start,end;
+    private long inserttime;
     @Override
     protected void executeSql() {
+        start=System.currentTimeMillis();
         if (logger.isLoggable(Level.INFO))
             logger.info("Start loading testbed...");
 
@@ -35,13 +38,15 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
 
         // Generate item records
         generateItems(0);
-
+        end=System.currentTimeMillis();
+        inserttime=start-end;
+        logger.info("insert time: " + inserttime);
         if (logger.isLoggable(Level.INFO))
             logger.info("Training IVF index...");
 
         StoredProcedureUtils.executeTrainIndex(getHelper().getTableName(),
                 getHelper().getIdxFields(),
-                getHelper().getIdxName(), getTransaction());
+                getHelper().getIdxName(), getTransaction(),inserttime);
 
         if (logger.isLoggable(Level.INFO))
             logger.info("Training IVF index finished");
@@ -103,7 +108,9 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
                 logger.info(sql);
                 iid++;
                 StoredProcedureUtils.executeUpdate(sql, tx);
+                
             }
+            
         } catch (IOException e) {
             e.printStackTrace();
         }
