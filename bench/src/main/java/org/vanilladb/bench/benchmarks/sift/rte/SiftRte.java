@@ -125,6 +125,7 @@ public class SiftRte extends RemoteTerminalEmulator<SiftTransactionType> {
             count++;
             Logger logger = Logger.getLogger(SiftRte.class.getName());
             logger.info(String.valueOf(count) + " / " + String.valueOf(resultMap.size()));
+            logger.info("Recallrate: " + recallRate);
 
         }
 
