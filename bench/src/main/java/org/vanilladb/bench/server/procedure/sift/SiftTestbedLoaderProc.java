@@ -22,8 +22,11 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
         super(new SiftTestbedLoaderParamHelper());
     }
 
+    private long start,end;
+    private long inserttime;
     @Override
     protected void executeSql() {
+        start=System.currentTimeMillis();
         if (logger.isLoggable(Level.INFO))
             logger.info("Start loading testbed...");
 
@@ -35,13 +38,15 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
 
         // Generate item records
         generateItems(0);
+        end=System.currentTimeMillis();
+        inserttime=start-end;
 
         if (logger.isLoggable(Level.INFO))
             logger.info("Training IVF index...");
 
         StoredProcedureUtils.executeTrainIndex(getHelper().getTableName(),
                 getHelper().getIdxFields(),
-                getHelper().getIdxName(), getTransaction());
+                getHelper().getIdxName(), getTransaction(),inserttime);
 
         if (logger.isLoggable(Level.INFO))
             logger.info("Training IVF index finished");
@@ -62,6 +67,9 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
             logger.info("Loading procedure finished.");
     }
 
+    private long getinserttime(){
+        return inserttime;
+    }
     private void dropOldData() {
         if (logger.isLoggable(Level.WARNING))
             logger.warning("Dropping is skipped.");
@@ -100,7 +108,7 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
 
             while (iid < SiftBenchConstants.NUM_ITEMS && (vectorString = br.readLine()) != null) {
                 String sql = "INSERT INTO sift(i_id, i_emb) VALUES (" + iid + ", [" + vectorString + "])";
-                // logger.info(sql);
+                logger.info(sql);
                 iid++;
                 StoredProcedureUtils.executeUpdate(sql, tx);
             }

@@ -1,0 +1,5 @@
+# of txns (including aborted) during benchmark period: 0
+INSERT - committed: 0, aborted: 0, avg latency: 0 ms
+ANN - committed: 0, aborted: 0, avg latency: 0 ms
+Recall: NaN%
+TOTAL - committed: 0, aborted: 0, avg latency: 0 ms

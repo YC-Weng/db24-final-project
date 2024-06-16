@@ -10,13 +10,14 @@ import org.vanilladb.core.storage.metadata.index.IndexInfo;
 import org.vanilladb.core.storage.metadata.statistics.Histogram;
 import org.vanilladb.core.storage.record.RecordFile;
 import org.vanilladb.core.storage.tx.Transaction;
-
+import org.vanilladb.core.storage.index.IVF.SIMDOperations;
 public class IndexSortPlan implements Plan {
 
     private Plan p, dp;
     private Transaction tx;
     private DistanceFn distFn;
     private IndexInfo ii;
+    private VectorConstant queryVector;
 
     public IndexSortPlan(Plan p, DistanceFn distFn, IndexInfo ii, Transaction tx) {
         this.p = p;
@@ -35,15 +36,35 @@ public class IndexSortPlan implements Plan {
         Index idx = ii.open(tx);
         TableInfo ti = ((IVFIndex) idx).getCentroidTableInfo();
         RecordFile rf = ti.open(tx, false);
-        double minDist = 999999;
-        int minCentNum = -1;
-        rf.beforeFirst();
-        while (rf.next())
-            if (this.distFn.distance((VectorConstant) rf.getVal("key0")) < minDist) {
-                minDist = this.distFn.distance((VectorConstant) rf.getVal("key0"));
+        // double minDist = 999999;
+        // int minCentNum = -1;
+        // rf.beforeFirst();
+        // while (rf.next())
+        //     if (this.distFn.distance((VectorConstant) rf.getVal("key0")) < minDist) {
+        //         minDist = this.distFn.distance((VectorConstant) rf.getVal("key0"));
+        //         minCentNum = (int) rf.getVal("centroid_num").asJavaVal();
+        //     }
+        // rf.close();
+        
+         //SIMD
+         double mindist = Double.MAX_VALUE;
+         int minCentNum = -1;
+          // change to float array
+        queryVector=this.distFn.getQueryVector();
+        float[] queryArray = queryVector.asJavaVal();
+
+        while (rf.next()) {
+            VectorConstant key0 = (VectorConstant) rf.getVal("key0");
+            float[] keyArray = key0.asJavaVal();
+            double dist = SIMDOperations.simdEuclideanDistance(queryArray, keyArray);
+            if (dist < mindist) {
+                mindist = dist;
                 minCentNum = (int) rf.getVal("centroid_num").asJavaVal();
             }
+        }
         rf.close();
+
+
         return new TablePlan(((IVFIndex) idx).getDataTableInfo(minCentNum), tx);
     }
 

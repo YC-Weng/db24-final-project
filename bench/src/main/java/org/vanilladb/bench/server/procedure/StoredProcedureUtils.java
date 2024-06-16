@@ -147,7 +147,7 @@ public class StoredProcedureUtils {
 		return VanillaDb.newPlanner().executeInsert(sql, tx);
 	}
 
-	public static void executeTrainIndex(String tblName, List<String> idxFields, String idxName, Transaction tx) {
+	public static void executeTrainIndex(String tblName, List<String> idxFields, String idxName, Transaction tx, long inserttime) {
 		Set<IndexInfo> indexes = new HashSet<IndexInfo>();
 		for (String fldname : idxFields) {
 			List<IndexInfo> iis = VanillaDb.catalogMgr().getIndexInfo(tblName, fldname, tx);
@@ -156,7 +156,7 @@ public class StoredProcedureUtils {
 
 		for (IndexInfo ii : indexes) {
 			Index idx = ii.open(tx);
-			idx.TrainIndex();
+			idx.TrainIndex(inserttime);
 		}
 	}
 }

@@ -245,10 +245,6 @@ public class BTreeIndex extends Index {
 
 	}
 
-	@Override
-	public void TrainIndex() {
-
-	}
 
 	private void search(SearchRange searchRange, SearchPurpose purpose) {
 		close();
@@ -289,5 +285,11 @@ public class BTreeIndex extends Index {
 		BlockId blk = buff.block();
 		tx.bufferMgr().unpin(buff);
 		return blk;
+	}
+
+	@Override
+	public void TrainIndex(long inserttime) {
+		// TODO Auto-generated method stub
+		throw new UnsupportedOperationException("Unimplemented method 'TrainIndex'");
 	}
 }

@@ -245,7 +245,7 @@ public class HashIndex extends Index {
 	}
 
 	@Override
-	public void TrainIndex() {
+	public void TrainIndex(long index) {
 
 	}
 
