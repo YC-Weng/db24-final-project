@@ -3,7 +3,6 @@ package org.vanilladb.core.storage.index.IVF;
 import static org.vanilladb.core.sql.Type.BIGINT;
 import static org.vanilladb.core.sql.Type.INTEGER;
 
-import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -90,15 +89,15 @@ public class IVFIndex extends Index {
         return sch;
     }
 
-    private static Schema temp_data_schema(SearchKeyType keyType) {
-        Schema sch = new Schema();
-        for (int i = 0; i < keyType.length(); i++)
-            sch.addField(keyFieldName(i), keyType.get(i));
-        sch.addField(SCHEMA_RID_BLOCK, BIGINT);
-        sch.addField(SCHEMA_RID_ID, INTEGER);
-        sch.addField("centroid_num", INTEGER);
-        return sch;
-    }
+    // private static Schema temp_data_schema(SearchKeyType keyType) {
+    // Schema sch = new Schema();
+    // for (int i = 0; i < keyType.length(); i++)
+    // sch.addField(keyFieldName(i), keyType.get(i));
+    // sch.addField(SCHEMA_RID_BLOCK, BIGINT);
+    // sch.addField(SCHEMA_RID_ID, INTEGER);
+    // sch.addField("centroid_num", INTEGER);
+    // return sch;
+    // }
 
     private class DpBlkRid {
         public Constant vc, blk, rid;
@@ -113,7 +112,7 @@ public class IVFIndex extends Index {
     private SearchKey searchKey;
     private RecordFile rf;
     private boolean isBeforeFirsted;
-    private Map<IntegerConstant, Constant> centroidMap, centDataNumMap;
+    private Map<IntegerConstant, Constant> centroidMap;
     private Map<Constant, List<DpBlkRid>> centDpMap;
     private long startTrainTime;
     private int minDataNum;
@@ -130,10 +129,6 @@ public class IVFIndex extends Index {
      */
     public IVFIndex(IndexInfo ii, SearchKeyType keyType, Transaction tx) {
         super(ii, keyType, tx);
-    }
-
-    private VectorConstant GenerateRandomVector() {
-        return new VectorConstant(NUM_DIMENSION, DIMENSION_DATA_UPPER_BOUND);
     }
 
     // create centroid file and temp data file
@@ -220,7 +215,7 @@ public class IVFIndex extends Index {
             Constant sum = VectorConstant.zeros(NUM_DIMENSION);
             for (DpBlkRid dp : centDpMap.get(new IntegerConstant(i)))
                 sum = sum.add(dp.vc);
-            if (centDpMap.get(new IntegerConstant(i)).size() != 0)
+            if (centDpMap.get(new IntegerConstant(i)).size() > 20)
                 centroidMap.put(new IntegerConstant(i),
                         sum.div(new IntegerConstant(centDpMap.get(new IntegerConstant(i)).size())));
             else
