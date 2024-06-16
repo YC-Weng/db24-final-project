@@ -244,11 +244,6 @@ public class HashIndex extends Index {
 
 	}
 
-	@Override
-	public void TrainIndex() {
-
-	}
-
 	private long fileSize(String fileName) {
 		tx.concurrencyMgr().readFile(fileName);
 		return VanillaDb.fileMgr().size(fileName);

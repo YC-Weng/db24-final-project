@@ -34,9 +34,9 @@ public class IndexSortPlan implements Plan {
     private Plan find_centroid_data_tp() {
         Index idx = ii.open(tx);
         TableInfo ti = ((IVFIndex) idx).getCentroidTableInfo();
-        RecordFile rf = ti.open(tx, false);
         double minDist = 999999;
         int minCentNum = -1;
+        RecordFile rf = ti.open(tx, false);
         rf.beforeFirst();
         while (rf.next())
             if (this.distFn.distance((VectorConstant) rf.getVal("key0")) < minDist) {
@@ -44,7 +44,9 @@ public class IndexSortPlan implements Plan {
                 minCentNum = (int) rf.getVal("centroid_num").asJavaVal();
             }
         rf.close();
-        return new TablePlan(((IVFIndex) idx).getDataTableInfo(minCentNum), tx);
+        TableInfo idxti = ((IVFIndex) idx).getDataTableInfo(minCentNum);
+        idx.close();
+        return new TablePlan(idxti, tx);
     }
 
     @Override

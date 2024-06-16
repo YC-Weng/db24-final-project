@@ -37,6 +37,8 @@ import org.vanilladb.core.sql.VectorConstant;
 import org.vanilladb.core.sql.distfn.DistanceFn;
 import org.vanilladb.core.sql.distfn.EuclideanFn;
 import org.vanilladb.core.storage.index.Index;
+import org.vanilladb.core.storage.index.IndexType;
+import org.vanilladb.core.storage.index.IVF.IVFIndex;
 import org.vanilladb.core.storage.metadata.index.IndexInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 
@@ -147,7 +149,8 @@ public class StoredProcedureUtils {
 		return VanillaDb.newPlanner().executeInsert(sql, tx);
 	}
 
-	public static void executeTrainIndex(String tblName, List<String> idxFields, String idxName, Transaction tx) {
+	public static void executeTrainIndex(String tblName, List<String> idxFields, String idxName, Transaction tx,
+			long timeTaken) {
 		Set<IndexInfo> indexes = new HashSet<IndexInfo>();
 		for (String fldname : idxFields) {
 			List<IndexInfo> iis = VanillaDb.catalogMgr().getIndexInfo(tblName, fldname, tx);
@@ -156,7 +159,9 @@ public class StoredProcedureUtils {
 
 		for (IndexInfo ii : indexes) {
 			Index idx = ii.open(tx);
-			idx.TrainIndex();
+			if (ii.indexType() == IndexType.IVF)
+				((IVFIndex) idx).TrainIndex(timeTaken);
+			idx.close();
 		}
 	}
 }

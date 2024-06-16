@@ -30,6 +30,8 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
         // turn off logging set value to speed up loading process
         RecoveryMgr.enableLogging(false);
 
+        long startLoadTime = System.currentTimeMillis();
+
         dropOldData();
         createSchemas();
 
@@ -37,11 +39,15 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
         generateItems(0);
 
         if (logger.isLoggable(Level.INFO))
+            logger.info("So far, it has taken " + String.valueOf((System.currentTimeMillis() - startLoadTime) / 1000)
+                    + " seconds...");
+
+        if (logger.isLoggable(Level.INFO))
             logger.info("Training IVF index...");
 
         StoredProcedureUtils.executeTrainIndex(getHelper().getTableName(),
                 getHelper().getIdxFields(),
-                getHelper().getIdxName(), getTransaction());
+                getHelper().getIdxName(), getTransaction(), System.currentTimeMillis() - startLoadTime);
 
         if (logger.isLoggable(Level.INFO))
             logger.info("Training IVF index finished");

@@ -154,9 +154,6 @@ public abstract class Index {
 	// when execute create index sql this method will be called
 	public abstract void Initialization();
 
-	// when finish loadtestbed this method will be called
-	public abstract void TrainIndex();
-
 	public IndexInfo getIndexInfo() {
 		return ii;
 	}

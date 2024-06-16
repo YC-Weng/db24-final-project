@@ -245,11 +245,6 @@ public class BTreeIndex extends Index {
 
 	}
 
-	@Override
-	public void TrainIndex() {
-
-	}
-
 	private void search(SearchRange searchRange, SearchPurpose purpose) {
 		close();
 		BlockId leafblk;

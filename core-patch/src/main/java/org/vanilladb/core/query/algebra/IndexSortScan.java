@@ -54,6 +54,7 @@ public class IndexSortScan implements Scan {
     @Override
     public void close() {
         s.close();
+        ds.close();
     }
 
     @Override

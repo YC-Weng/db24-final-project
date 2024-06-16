@@ -33,6 +33,7 @@ import org.vanilladb.core.sql.IntegerConstant;
 import org.vanilladb.core.sql.Schema;
 import org.vanilladb.core.sql.VarcharConstant;
 import org.vanilladb.core.storage.index.IndexType;
+import org.vanilladb.core.storage.index.IVF.IVFIndex;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.metadata.TableMgr;
 import org.vanilladb.core.storage.record.RecordFile;
@@ -157,7 +158,11 @@ public class IndexMgr {
 
 		// if index_type is IVF then call Initialization will create all the centroids
 		IndexInfo ii = new IndexInfo(idxName, tblName, fldNames, idxType);
-		ii.open(tx).Initialization();
+		if (ii.indexType() == IndexType.IVF) {
+			IVFIndex idx = (IVFIndex) ii.open(tx);
+			idx.Initialization();
+			idx.close();
+		}
 
 		updateCache(ii);
 	}
