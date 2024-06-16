@@ -14,6 +14,7 @@ import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.IntegerConstant;
 import org.vanilladb.core.sql.Schema;
 import org.vanilladb.core.sql.VectorConstant;
+import org.vanilladb.core.sql.distfn.EuclideanFn;
 import org.vanilladb.core.storage.file.BlockId;
 import org.vanilladb.core.storage.index.Index;
 import org.vanilladb.core.storage.index.SearchKey;
@@ -390,38 +391,31 @@ public class IVFIndex extends Index {
     }
 
     private int calc_nearest_cent_num(SearchKey searchKey) {
-        int smallestCentroidNum = 0;
-        float minDistance = Float.MAX_VALUE;
-        VectorConstant queryVector = (VectorConstant) searchKey.get(0); // 假设 searchKey.get(0) 返回 VectorConstant
-
+        int smallest_centroid_num = 0;
+        float distance = (float) 9999999;
+        EuclideanFn disFn = new EuclideanFn("i_emb");
+        disFn.setQueryVector((VectorConstant) searchKey.get(0));
         for (int i = 0; i < NUM_CENTROIDS; i++) {
-            VectorConstant centroid = (VectorConstant) centroidMap.get(new IntegerConstant(i));
-            float distance = SIMDOperations.simdEuclideanDistance(queryVector.asJavaVal(), centroid.asJavaVal());
-            if (distance < minDistance) {
-                minDistance = distance;
-                smallestCentroidNum = i;
+            if (disFn.distance((VectorConstant) centroidMap.get(new IntegerConstant(i))) < distance) {
+                distance = (float) disFn.distance((VectorConstant) centroidMap.get(new IntegerConstant(i)));
+                smallest_centroid_num = i;
             }
         }
-        return smallestCentroidNum;
+        return smallest_centroid_num;
     }
 
     private int calc_nearest_cent_num(VectorConstant vc) {
-        int smallestCentroidNum = 0;
-        double minDistance = Float.MAX_VALUE;
-        float[] queryVector = vc.asJavaVal();
-
+        int smallest_centroid_num = 0;
+        float distance = (float) 9999999;
+        EuclideanFn disFn = new EuclideanFn("i_emb");
+        disFn.setQueryVector(vc);
         for (int i = 0; i < NUM_CENTROIDS; i++) {
-            VectorConstant centroid = (VectorConstant) centroidMap.get(new IntegerConstant(i));
-            float[] centroidVector = centroid.asJavaVal();
-            float distance = SIMDOperations.simdEuclideanDistance(queryVector, centroidVector);
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                smallestCentroidNum = i;
+            if (disFn.distance((VectorConstant) centroidMap.get(new IntegerConstant(i))) < distance) {
+                distance = (float) disFn.distance((VectorConstant) centroidMap.get(new IntegerConstant(i)));
+                smallest_centroid_num = i;
             }
         }
-
-        return smallestCentroidNum;
+        return smallest_centroid_num;
     }
 
     private void load_all_the_centroids() {
