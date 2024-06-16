@@ -4,8 +4,6 @@ import static org.vanilladb.core.sql.Type.BIGINT;
 import static org.vanilladb.core.sql.Type.INTEGER;
 
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.logging.Logger;
@@ -103,9 +101,9 @@ public class IVFIndex extends Index {
     private RecordFile rf;
     private RecordFile temprf;
     private boolean isBeforeFirsted;
-    private Map<IntegerConstant, Constant> centroidMap, centsumMap, centDataNumMap;
+    private Map<IntegerConstant, Constant> centroidMap, centDataNumMap;
     private long startTrainTime;
-    private List<Constant> random_vectors;
+    private int num_items, minDataNum;
 
     /**
      * Opens a hash index for the specified index.
@@ -121,6 +119,10 @@ public class IVFIndex extends Index {
         super(ii, keyType, tx);
     }
 
+    private VectorConstant GenerateRandomVector() {
+        return new VectorConstant(NUM_DIMENSION, DIMENSION_DATA_UPPER_BOUND);
+    }
+
     // create centroid file and temp data file
     @Override
     public void Initialization() {
@@ -129,48 +131,58 @@ public class IVFIndex extends Index {
         TableInfo ti = new TableInfo(ii.indexName() + "_centroid", schema(keyType));
         rf = ti.open(tx, false);
         RecordFile.formatFileHeader(ti.fileName(), tx);
+
+        for (int i = 0; i < NUM_CENTROIDS; i++) {
+            rf.insert();
+            rf.setVal(keyFieldName(0), GenerateRandomVector());
+            rf.setVal("centroid_num", new IntegerConstant(i));
+        }
         rf.close();
-
-        TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
-        temprf = tempti.open(tx, false);
-        RecordFile.formatFileHeader(tempti.fileName(), tx);
-        temprf.close();
-
         tx.bufferMgr().flushAll();
     }
 
-    private void prepare_to_train() {
-        centDataNumMap = new HashMap<IntegerConstant, Constant>();
-        centsumMap = new HashMap<IntegerConstant, Constant>();
-        centroidMap = new HashMap<IntegerConstant, Constant>();
-        random_vectors = new LinkedList<Constant>();
-        Random rvg = new Random();
-        for (int i = 0; i < NUM_CENTROIDS; i++) {
-            centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(0));
-            centsumMap.put(new IntegerConstant(i), VectorConstant.zeros(NUM_DIMENSION));
-        }
+    private void prepare_for_training() {
+        close();
 
+        centroidMap = new HashMap<IntegerConstant, Constant>();
+        centDataNumMap = new HashMap<IntegerConstant, Constant>();
+        for (int i = 0; i < NUM_CENTROIDS; i++)
+            centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(0));
+        Random rvg = new Random();
+        num_items = 0;
         TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
         temprf = tempti.open(tx, false);
-        temprf.beforeFirst();
-        while (temprf.next()) {
-            IntegerConstant centNum = (IntegerConstant) temprf.getVal("centroid_num");
-            centDataNumMap.put(centNum, centDataNumMap.get(centNum).add(new IntegerConstant(1)));
-            centsumMap.put(centNum, centsumMap.get(centNum).add(temprf.getVal(keyFieldName(0))));
-
-            if (rvg.nextInt(100) == 1)
-                random_vectors.add(temprf.getVal(keyFieldName(0)));
-        }
-        temprf.close();
+        RecordFile.formatFileHeader(tempti.fileName(), tx);
 
         for (int i = 0; i < NUM_CENTROIDS; i++) {
-            if (centDataNumMap.get(new IntegerConstant(i)).equals(new IntegerConstant(0)))
-                centroidMap.put(new IntegerConstant(i), random_select_data_to_gen_vec());
-            else
-                centroidMap.put(new IntegerConstant(i),
-                        centsumMap.get(new IntegerConstant(i)).div(centDataNumMap.get(new IntegerConstant(i))));
+            TableInfo ti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(i), data_schema(keyType));
+            rf = ti.open(tx, false);
+            rf.beforeFirst();
+            while (rf.next()) {
+                num_items++;
+                int rand_int = rvg.nextInt(NUM_CENTROIDS);
+                temprf.insert();
+                temprf.setVal(keyFieldName(0), rf.getVal(keyFieldName(0)));
+                temprf.setVal(SCHEMA_RID_BLOCK, rf.getVal(SCHEMA_RID_BLOCK));
+                temprf.setVal(SCHEMA_RID_ID, rf.getVal(SCHEMA_RID_ID));
+                temprf.setVal("centroid_num", new IntegerConstant(rand_int));
+
+                centDataNumMap.put(new IntegerConstant(rand_int),
+                        (IntegerConstant) centDataNumMap.get(new IntegerConstant(rand_int))
+                                .add(new IntegerConstant(1)));
+
+            }
+            rf.close();
         }
 
+        minDataNum = 1000000;
+        for (int i = 0; i < NUM_CENTROIDS; i++)
+            if ((int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal() < minDataNum
+                    && (int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal() != 0)
+                minDataNum = (int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal();
+
+        temprf.close();
+        tx.bufferMgr().flushAll();
     }
 
     // using kmeans to train the index
@@ -179,7 +191,7 @@ public class IVFIndex extends Index {
 
         startTrainTime = System.currentTimeMillis();
 
-        prepare_to_train();
+        prepare_for_training();
 
         long prevTime = startTrainTime;
         int i = 1;
@@ -187,7 +199,8 @@ public class IVFIndex extends Index {
             Map<IntegerConstant, Constant> oldCentDataNumMap = new HashMap<IntegerConstant, Constant>(
                     centDataNumMap);
 
-            reassign_and_calculate(oldCentDataNumMap);
+            calculate_new_centroids();
+            reassign_all_the_data();
 
             logger.info("After iteration " + String.valueOf(i) + ": \n" + print_cent_data_num_info(oldCentDataNumMap)
                     + "iteration " + String.valueOf(i) + ": "
@@ -209,40 +222,56 @@ public class IVFIndex extends Index {
         write_back_new_data();
     }
 
-    private void reassign_and_calculate(Map<IntegerConstant, Constant> oldCentDataNumMa) {
-        random_vectors = new LinkedList<Constant>();
-        Random rvg = new Random();
+    private void calculate_new_centroids() {
+        Map<Constant, Constant> centDistMap = new HashMap<Constant, Constant>();
         TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
-        temprf = tempti.open(tx, false);
+        RecordFile temprf = tempti.open(tx, false);
         temprf.beforeFirst();
-
         while (temprf.next()) {
-            IntegerConstant nearest_cent = new IntegerConstant(
-                    calc_nearest_cent_num((VectorConstant) temprf.getVal(keyFieldName(0))));
-            IntegerConstant old_cent_num = (IntegerConstant) temprf.getVal("centroid_num");
+            VectorConstant vc = (VectorConstant) temprf.getVal(keyFieldName(0));
+            if (centDistMap.keySet().contains(temprf.getVal("centroid_num")))
+                centDistMap.put(temprf.getVal("centroid_num"), centDistMap.get(temprf.getVal("centroid_num")).add(vc));
+            else
+                centDistMap.put(temprf.getVal("centroid_num"), vc);
+        }
 
-            if (nearest_cent != old_cent_num) {
-                temprf.setVal("centroid_num", nearest_cent);
-                centDataNumMap.put(old_cent_num, centDataNumMap.get(old_cent_num).sub(new IntegerConstant(1)));
-                centDataNumMap.put(nearest_cent, centDataNumMap.get(nearest_cent).add(new IntegerConstant(1)));
-                centsumMap.put(old_cent_num, centsumMap.get(old_cent_num).sub(temprf.getVal(keyFieldName(0))));
-                centsumMap.put(nearest_cent, centsumMap.get(nearest_cent).add(temprf.getVal(keyFieldName(0))));
+        for (int i = 0; i < NUM_CENTROIDS; i++) {
+            if ((int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal() == 0)
+                centroidMap.put(new IntegerConstant(i), steal_some_data_to_gen_vec(i, temprf));
+            else
+                centroidMap.put(new IntegerConstant(i),
+                        centDistMap.get(new IntegerConstant(i)).div(centDataNumMap.get(new IntegerConstant(i))));
+        }
+        temprf.close();
+    }
 
-                if (rvg.nextInt(100) == 1)
-                    random_vectors.add(temprf.getVal(keyFieldName(0)));
-            }
+    private VectorConstant steal_some_data_to_gen_vec(int i, RecordFile temprf) {
+        temprf.beforeFirst();
+        Random rvg = new Random();
+        int count = rvg.nextInt(num_items);
+        for (int j = 0; j < count; j++)
+            temprf.next();
+        return (VectorConstant) temprf.getVal(keyFieldName(0));
+    }
+
+    private void reassign_all_the_data() {
+        centDataNumMap = new HashMap<IntegerConstant, Constant>();
+        for (int i = 0; i < NUM_CENTROIDS; i++)
+            centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(0));
+
+        TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
+        RecordFile temprf = tempti.open(tx, false);
+        temprf.beforeFirst();
+        while (temprf.next()) {
+            int nearest_cent = calc_nearest_cent_num((VectorConstant) temprf.getVal(keyFieldName(0)));
+            temprf.setVal("centroid_num", new IntegerConstant(nearest_cent));
+
+            centDataNumMap.put(new IntegerConstant(nearest_cent), (IntegerConstant) centDataNumMap
+                    .get(new IntegerConstant(nearest_cent)).add(new IntegerConstant(1)));
         }
         temprf.close();
 
-        for (int i = 0; i < NUM_CENTROIDS; i++) {
-            if ((int) centDataNumMap.get(new IntegerConstant(i)).asJavaVal() < 20
-                    && centDataNumMap.get(new IntegerConstant(i)).equals(oldCentDataNumMa.get(new IntegerConstant(i))))
-                centroidMap.put(new IntegerConstant(i), random_select_data_to_gen_vec());
-            else
-                centroidMap.put(new IntegerConstant(i),
-                        centsumMap.get(new IntegerConstant(i)).div(centDataNumMap.get(new IntegerConstant(i))));
-        }
-
+        tx.bufferMgr().flushAll();
     }
 
     private boolean any_change(Map<IntegerConstant, Constant> oldCentDataNumMap) {
@@ -254,22 +283,6 @@ public class IVFIndex extends Index {
                 return true;
         }
         return false;
-    }
-
-    private VectorConstant random_select_data_to_gen_vec() {
-        Random rvg = new Random();
-        Constant totalVc = VectorConstant.zeros(NUM_DIMENSION);
-        int count = 0;
-        for (Constant vc : random_vectors) {
-            if (rvg.nextInt(100) == 1) {
-                totalVc = totalVc.add(vc);
-                count++;
-            }
-        }
-        if (count == 0)
-            return (VectorConstant) random_vectors.get(rvg.nextInt(random_vectors.size()));
-        else
-            return (VectorConstant) totalVc.div(new IntegerConstant(count));
     }
 
     private void write_back_new_centroids() {

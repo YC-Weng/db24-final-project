@@ -22,12 +22,8 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
         super(new SiftTestbedLoaderParamHelper());
     }
 
-    private long start, end;
-    private long inserttime;
-
     @Override
     protected void executeSql() {
-        start = System.currentTimeMillis();
         if (logger.isLoggable(Level.INFO))
             logger.info("Start loading testbed...");
 
@@ -110,7 +106,7 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
 
             while (iid < SiftBenchConstants.NUM_ITEMS && (vectorString = br.readLine()) != null) {
                 String sql = "INSERT INTO sift(i_id, i_emb) VALUES (" + iid + ", [" + vectorString + "])";
-                logger.info(sql);
+                // logger.info(sql);
                 iid++;
                 StoredProcedureUtils.executeUpdate(sql, tx);
 
