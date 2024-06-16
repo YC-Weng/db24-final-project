@@ -102,6 +102,7 @@ public class IVFIndex extends Index {
     private RecordFile temprf;
     private boolean isBeforeFirsted;
     private Map<IntegerConstant, Constant> centroidMap, centDataNumMap;
+    private Map<Constant, Constant> vcCentMap;
     private long startTrainTime;
     private int num_items, minDataNum;
 
@@ -131,13 +132,13 @@ public class IVFIndex extends Index {
         TableInfo ti = new TableInfo(ii.indexName() + "_centroid", schema(keyType));
         rf = ti.open(tx, false);
         RecordFile.formatFileHeader(ti.fileName(), tx);
-
-        for (int i = 0; i < NUM_CENTROIDS; i++) {
-            rf.insert();
-            rf.setVal(keyFieldName(0), GenerateRandomVector());
-            rf.setVal("centroid_num", new IntegerConstant(i));
-        }
         rf.close();
+
+        TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
+        temprf = tempti.open(tx, false);
+        RecordFile.formatFileHeader(tempti.fileName(), tx);
+        temprf.close();
+
         tx.bufferMgr().flushAll();
     }
 
@@ -146,13 +147,12 @@ public class IVFIndex extends Index {
 
         centroidMap = new HashMap<IntegerConstant, Constant>();
         centDataNumMap = new HashMap<IntegerConstant, Constant>();
+        vcCentMap = new HashMap<Constant, Constant>();
         for (int i = 0; i < NUM_CENTROIDS; i++)
             centDataNumMap.put(new IntegerConstant(i), new IntegerConstant(0));
-        Random rvg = new Random();
         num_items = 0;
         TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
         temprf = tempti.open(tx, false);
-        RecordFile.formatFileHeader(tempti.fileName(), tx);
 
         for (int i = 0; i < NUM_CENTROIDS; i++) {
             TableInfo ti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(i), data_schema(keyType));
@@ -160,17 +160,16 @@ public class IVFIndex extends Index {
             rf.beforeFirst();
             while (rf.next()) {
                 num_items++;
-                int rand_int = rvg.nextInt(NUM_CENTROIDS);
                 temprf.insert();
                 temprf.setVal(keyFieldName(0), rf.getVal(keyFieldName(0)));
                 temprf.setVal(SCHEMA_RID_BLOCK, rf.getVal(SCHEMA_RID_BLOCK));
                 temprf.setVal(SCHEMA_RID_ID, rf.getVal(SCHEMA_RID_ID));
-                temprf.setVal("centroid_num", new IntegerConstant(rand_int));
+                temprf.setVal("centroid_num", new IntegerConstant(i));
 
-                centDataNumMap.put(new IntegerConstant(rand_int),
-                        (IntegerConstant) centDataNumMap.get(new IntegerConstant(rand_int))
+                vcCentMap.put(rf.getVal(keyFieldName(0)), new IntegerConstant(i));
+                centDataNumMap.put(new IntegerConstant(i),
+                        (IntegerConstant) centDataNumMap.get(new IntegerConstant(i))
                                 .add(new IntegerConstant(1)));
-
             }
             rf.close();
         }
@@ -224,6 +223,7 @@ public class IVFIndex extends Index {
 
     private void calculate_new_centroids() {
         Map<Constant, Constant> centDistMap = new HashMap<Constant, Constant>();
+
         TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
         RecordFile temprf = tempti.open(tx, false);
         temprf.beforeFirst();
@@ -489,27 +489,21 @@ public class IVFIndex extends Index {
     public void insert_random(SearchKey key, RecordId dataRecordId, boolean doLogicalLogging) {
         // random choose a centroid data file
         close();
+
         Random rvg = new Random();
-        TableInfo tempti = new TableInfo("_temp_" + ii.indexName() + "_data", temp_data_schema(keyType));
-        temprf = tempti.open(tx, false);
-        temprf.insert();
+        TableInfo ti = new TableInfo(ii.indexName() + "_data_" + String.valueOf(rvg.nextInt(NUM_CENTROIDS)),
+                data_schema(keyType));
+        rf = ti.open(tx, false);
 
-        // log the logical operation starts
-        if (doLogicalLogging)
-            tx.recoveryMgr().logLogicalStart();
+        if (rf.fileSize() == 0)
+            RecordFile.formatFileHeader(ti.fileName(), tx);
 
-        temprf.setVal(keyFieldName(0), key.get(0));
-        temprf.setVal(SCHEMA_RID_BLOCK, new BigIntConstant(dataRecordId.block()
+        rf.insert();
+        rf.setVal(keyFieldName(0), key.get(0));
+        rf.setVal(SCHEMA_RID_BLOCK, new BigIntConstant(dataRecordId.block()
                 .number()));
-        temprf.setVal(SCHEMA_RID_ID, new IntegerConstant(dataRecordId.id()));
-        temprf.setVal("centroid_num", new IntegerConstant(rvg.nextInt(NUM_CENTROIDS)));
-
-        // log the logical operation ends
-        if (doLogicalLogging)
-            tx.recoveryMgr().logIndexInsertionEnd(ii.indexName(), key,
-                    dataRecordId.block().number(), dataRecordId.id());
-
-        temprf.close();
+        rf.setVal(SCHEMA_RID_ID, new IntegerConstant(dataRecordId.id()));
+        rf.close();
     }
 
     /**
