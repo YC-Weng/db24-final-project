@@ -17,6 +17,9 @@ public class IndexSortScan implements Scan {
     private DistanceFn distFn;
     private Map<Double, Map<Constant, Constant>> distBlkRidMap;
     private Iterator<Entry<Double, Map<Constant, Constant>>> distBlkRidIter;
+    private Map<Double, Constant> distIidMap;
+    private Iterator<Entry<Double, Constant>> distIidIter;
+    private Entry<Double, Constant> cur_entry;
 
     public IndexSortScan(Scan s, Scan ds, DistanceFn distFn) {
         this.s = s;
@@ -24,42 +27,38 @@ public class IndexSortScan implements Scan {
         this.distFn = distFn;
     }
 
+    public IndexSortScan(Scan s, DistanceFn distFn) {
+        this.s = s;
+        this.distFn = distFn;
+    }
+
     @Override
     public void beforeFirst() {
-        distBlkRidMap = new TreeMap<Double, Map<Constant, Constant>>();
-        ds.beforeFirst();
-        while (ds.next()) {
-            Map<Constant, Constant> dataMap = new HashMap<Constant, Constant>();
-            dataMap.put(ds.getVal("block"), ds.getVal("id"));
-            distBlkRidMap.put(distFn.distance((VectorConstant) ds.getVal("key0")), dataMap);
+        distIidMap = new TreeMap<Double, Constant>();
+        s.beforeFirst();
+        while (s.next()) {
+            distIidMap.put(distFn.distance((VectorConstant) s.getVal("i_emb")), s.getVal("i_id"));
         }
-        distBlkRidIter = distBlkRidMap.entrySet().iterator();
+        distIidIter = distIidMap.entrySet().iterator();
     }
 
     @Override
     public boolean next() {
-        boolean hasNext = distBlkRidIter.hasNext();
+        boolean hasNext = distIidIter.hasNext();
         if (hasNext == false)
             return false;
-        Entry<Double, Map<Constant, Constant>> e = distBlkRidIter.next();
-        Map<Constant, Constant> blkRid = e.getValue();
-        for (Entry<Constant, Constant> ent : blkRid.entrySet()) {
-            ((TableScan) this.s).moveToRecordId(
-                    new RecordId(new BlockId(((TableScan) this.s).TblName(), (long) ent.getKey().asJavaVal()),
-                            (int) ent.getValue().asJavaVal()));
-        }
+        cur_entry = distIidIter.next();
         return true;
     }
 
     @Override
     public void close() {
         s.close();
-        ds.close();
     }
 
     @Override
     public Constant getVal(String fldName) {
-        return s.getVal(fldName);
+        return cur_entry.getValue();
     }
 
     @Override

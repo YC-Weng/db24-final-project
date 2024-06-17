@@ -27,26 +27,7 @@ public class IndexSortPlan implements Plan {
 
     @Override
     public Scan open() {
-        this.dp = find_centroid_data_tp();
-        return new IndexSortScan(this.p.open(), this.dp.open(), this.distFn);
-    }
-
-    private Plan find_centroid_data_tp() {
-        Index idx = ii.open(tx);
-        TableInfo ti = ((IVFIndex) idx).getCentroidTableInfo();
-        double minDist = 999999;
-        int minCentNum = -1;
-        RecordFile rf = ti.open(tx, false);
-        rf.beforeFirst();
-        while (rf.next())
-            if (this.distFn.distance((VectorConstant) rf.getVal("key0")) < minDist) {
-                minDist = this.distFn.distance((VectorConstant) rf.getVal("key0"));
-                minCentNum = (int) rf.getVal("centroid_num").asJavaVal();
-            }
-        rf.close();
-        TableInfo idxti = ((IVFIndex) idx).getDataTableInfo(minCentNum);
-        idx.close();
-        return new TablePlan(idxti, tx);
+        return new IndexSortScan(this.p.open(), distFn);
     }
 
     @Override

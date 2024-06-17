@@ -42,15 +42,16 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
             logger.info("So far, it has taken " + String.valueOf((System.currentTimeMillis() - startLoadTime) / 1000)
                     + " seconds...");
 
-        if (logger.isLoggable(Level.INFO))
-            logger.info("Training IVF index...");
+        // if (logger.isLoggable(Level.INFO))
+        // logger.info("Training IVF index...");
 
-        StoredProcedureUtils.executeTrainIndex(getHelper().getTableName(),
-                getHelper().getIdxFields(),
-                getHelper().getIdxName(), getTransaction(), System.currentTimeMillis() - startLoadTime);
+        // StoredProcedureUtils.executeTrainIndex(getHelper().getTableName(),
+        // getHelper().getIdxFields(),
+        // getHelper().getIdxName(), getTransaction(), System.currentTimeMillis() -
+        // startLoadTime);
 
-        if (logger.isLoggable(Level.INFO))
-            logger.info("Training IVF index finished");
+        // if (logger.isLoggable(Level.INFO))
+        // logger.info("Training IVF index finished");
 
         if (logger.isLoggable(Level.INFO))
             logger.info("Loading completed. Flush all loading data to disks...");
@@ -83,12 +84,12 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
         for (String sql : paramHelper.getTableSchemas())
             StoredProcedureUtils.executeUpdate(sql, tx);
 
-        if (logger.isLoggable(Level.INFO))
-            logger.info("Creating indexes...");
+        // if (logger.isLoggable(Level.INFO))
+        // logger.info("Creating indexes...");
 
-        // Create indexes
-        for (String sql : paramHelper.getIndexSchemas())
-            StoredProcedureUtils.executeUpdate(sql, tx);
+        // // Create indexes
+        // for (String sql : paramHelper.getIndexSchemas())
+        // StoredProcedureUtils.executeUpdate(sql, tx);
 
         if (logger.isLoggable(Level.FINE))
             logger.info("Finish creating schemas.");
@@ -105,7 +106,7 @@ public class SiftTestbedLoaderProc extends StoredProcedure<SiftTestbedLoaderPara
             String vectorString;
 
             while (iid < SiftBenchConstants.NUM_ITEMS && (vectorString = br.readLine()) != null) {
-                String sql = "INSERT INTO sift(i_id, i_emb) VALUES (" + iid + ", [" + vectorString + "]) RANDOM";
+                String sql = "INSERT INTO sift(i_id, i_emb) VALUES (" + iid + ", [" + vectorString + "])";
                 // logger.info(sql);
                 iid++;
                 StoredProcedureUtils.executeUpdate(sql, tx);

@@ -85,7 +85,6 @@ class TablePlanner {
 		// Two tables cannot have the same embedding field names
 		for (DistanceFn embField : embFields) {
 			if (sch.hasField(embField.fieldName())) {
-				this.ii = VanillaDb.catalogMgr().getIndexInfo(tblName, embField.fieldName(), tx).get(0);
 				this.embField = embField;
 				break;
 			}
