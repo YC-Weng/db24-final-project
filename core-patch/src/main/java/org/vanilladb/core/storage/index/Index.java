@@ -155,7 +155,7 @@ public abstract class Index {
 	public abstract void Initialization();
 
 	// when finish loadtestbed this method will be called
-	public abstract void TrainIndex(long inserttime);
+	public abstract void TrainIndex();
 
 	public IndexInfo getIndexInfo() {
 		return ii;

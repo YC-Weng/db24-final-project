@@ -146,7 +146,7 @@ public class IVFIndex extends Index {
 
     // using kmeans to train the index
     @Override
-    public void TrainIndex(long inserttine) {
+    public void TrainIndex() {
         close();
         final long MAX_ALLOWED_TIME = 29 * 60 * 1000;
         startTrainTime = System.currentTimeMillis();
@@ -168,17 +168,13 @@ public class IVFIndex extends Index {
                     + String.valueOf((System.currentTimeMillis() - prevTime) / 1000.0) + " seconds\n"
                     + "total elapsed time: " + String.valueOf((System.currentTimeMillis() - startTrainTime) / 1000.0)
                     + " seconds\n");
-            // Calculate the total time including inserttine
-            long elapsedTime = System.currentTimeMillis() - startTrainTime;
-            long totalTimeIncludingInsert = elapsedTime - inserttine;
+            
             // if the training converge then stop
             if ((any_change(oldCentDataNumMap) == false && i > 10)
-                    || (totalTimeIncludingInsert > MAX_ALLOWED_TIME))
+                    || (System.currentTimeMillis() - startTrainTime > MAX_TRAINING_TIME * 1000))
                 break;
             
-            System.out.println("insertTine: " + String.valueOf(inserttine/1000.0)+ " seconds");
-            System.out.println("elapsedTime: "+  String.valueOf(elapsedTime/1000.0)+ " seconds");
-            System.out.println("totalTime: "+  String.valueOf(totalTimeIncludingInsert/1000.0)+ " seconds");
+            
             prevTime = System.currentTimeMillis();
             i++;
         }

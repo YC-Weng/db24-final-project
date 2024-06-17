@@ -246,7 +246,7 @@ public class BTreeIndex extends Index {
 	}
 
 	@Override
-	public void TrainIndex(long INFO) {
+	public void TrainIndex() {
 
 	}
 
