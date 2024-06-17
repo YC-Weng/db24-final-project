@@ -16,6 +16,8 @@ import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.IntegerConstant;
 import org.vanilladb.core.sql.Schema;
 import org.vanilladb.core.sql.VectorConstant;
+import org.vanilladb.core.sql.distfn.DistanceFn;
+import org.vanilladb.core.sql.distfn.EuclideanFn;
 import org.vanilladb.core.storage.file.BlockId;
 import org.vanilladb.core.storage.index.Index;
 import org.vanilladb.core.storage.index.SearchKey;
@@ -358,12 +360,12 @@ public class IVFIndex extends Index {
     private int calc_nearest_cent_num(VectorConstant vc) {
         int smallestCentroidNum = 0;
         double minDistance = Float.MAX_VALUE;
-        float[] queryVector = vc.asJavaVal();
+        DistanceFn distFn = new EuclideanFn(keyFieldName(0));
+        distFn.setQueryVector(vc);
 
         for (int i = 0; i < NUM_CENTROIDS; i++) {
             VectorConstant centroid = (VectorConstant) centroidMap.get(new IntegerConstant(i));
-            float[] centroidVector = centroid.asJavaVal();
-            float distance = SIMDOperations.simdEuclideanDistance(queryVector, centroidVector);
+            double distance = ((EuclideanFn) distFn).distance(centroid);
 
             if (distance < minDistance) {
                 minDistance = distance;
